@@ -69,6 +69,16 @@ export async function applyToTeam(teamId: string) {
         return { error: "You are already in a team" };
     }
 
+    // Leaders/representatives who created a team should not join other teams.
+    const leadingTeam = await prisma.team.findFirst({
+        where: { leaderId: session.user.id },
+        select: { id: true }
+    });
+
+    if (leadingTeam) {
+        return { error: "You already lead a team" };
+    }
+
     try {
         await prisma.application.create({
             data: {
@@ -117,7 +127,7 @@ export async function updateApplicationStatus(applicationId: string, status: App
 
     const application = await prisma.application.findUnique({
         where: { id: applicationId },
-        include: { team: true }
+        include: { team: { include: { slots: true } } }
     });
 
     if (!application || application.team.leaderId !== session.user.id) {
@@ -126,8 +136,18 @@ export async function updateApplicationStatus(applicationId: string, status: App
 
     try {
         if (status === "ACCEPTED") {
-            // Check if team is full? 
-            // Simplified: just add the member
+            // Capacity check: members excluding leader should not exceed slots.
+            const maxMembers = application.team.slots.reduce((acc, slot) => acc + slot.count, 0);
+            const currentMembers = await prisma.user.count({
+                where: {
+                    teamId: application.teamId,
+                    id: { not: application.team.leaderId }
+                }
+            });
+
+            if (currentMembers >= maxMembers) {
+                return { error: "Team is already full" };
+            }
             
             // Check if user is already in another team
             const targetUser = await prisma.user.findUnique({
@@ -188,6 +208,16 @@ export async function createTeam(formData: z.infer<typeof CreateTeamSchema>) {
     return { error: "Only representatives or admins can create teams" };
   }
 
+  // Representatives/leaders should only have one team, and should not be a member of another team.
+  const existingLeaderTeam = await prisma.team.findFirst({
+    where: { leaderId: session.user.id },
+    select: { id: true },
+  });
+
+  if (existingLeaderTeam) {
+    return { error: "You already lead a team" };
+  }
+
   // Validate input
   const validated = CreateTeamSchema.safeParse(formData);
   if (!validated.success) {
@@ -200,11 +230,16 @@ export async function createTeam(formData: z.infer<typeof CreateTeamSchema>) {
   // This logic is simplified; in production we'd use the lib/divergents map
   // Note: We need the user's section from the DB to be sure
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id }
+    where: { id: session.user.id },
+    select: { section: true, teamId: true }
   });
 
   if (!user?.section) {
     return { error: "User section not found" };
+  }
+
+  if (user.teamId) {
+    return { error: "You are already in a team" };
   }
 
   // Determine divergent (reusing logic from lib/divergents)
@@ -234,18 +269,7 @@ export async function createTeam(formData: z.infer<typeof CreateTeamSchema>) {
       }
     });
 
-    // Only add as a member if they aren't already in a team
-    const currentMember = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { teamId: true }
-    });
-
-    if (!currentMember?.teamId) {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: { teamId: team.id }
-      });
-    }
+    // NOTE: The team leader is stored via `leaderId` and should NOT be added as a member.
 
     revalidatePath("/dashboard");
     return { success: true, teamId: team.id };
@@ -256,7 +280,7 @@ export async function createTeam(formData: z.infer<typeof CreateTeamSchema>) {
 }
 
 export async function getTeams(userId?: string) {
-    return await prisma.team.findMany({
+    const teams = await prisma.team.findMany({
         include: {
             leader: {
                 select: {
@@ -281,6 +305,19 @@ export async function getTeams(userId?: string) {
             } : false
         },
         orderBy: { createdAt: 'desc' }
+    });
+
+    // Ensure leader is not counted as a member (also fixes existing DB rows).
+    return teams.map((team) => {
+        const members = team.members.filter((m) => m.id !== team.leaderId);
+        return {
+            ...team,
+            members,
+            _count: {
+                ...team._count,
+                members: members.length,
+            },
+        };
     });
 }
 
@@ -329,5 +366,26 @@ export async function getMyTeam() {
         orderBy: { createdAt: 'desc' }
     });
 
-    return { teams, applications };
+    const normalizedTeams = teams.map((team) => ({
+        ...team,
+        members: team.members.filter((m) => m.id !== team.leaderId),
+    }));
+
+    const normalizedApplications = applications.map((app) => {
+        const leaderIsMember = app.team.leader?.teamId === app.team.id;
+        const membersCount = leaderIsMember ? Math.max(0, app.team._count.members - 1) : app.team._count.members;
+
+        return {
+            ...app,
+            team: {
+                ...app.team,
+                _count: {
+                    ...app.team._count,
+                    members: membersCount,
+                },
+            },
+        };
+    });
+
+    return { teams: normalizedTeams, applications: normalizedApplications };
 }

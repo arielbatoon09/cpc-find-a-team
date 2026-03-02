@@ -123,7 +123,7 @@ export function TeamsList({ teams, currentUserId }: TeamsListProps) {
             <div className="mt-6 flex items-center justify-between">
               <div className="flex items-center space-x-2 text-[11px] text-muted-foreground font-medium">
                 <User className="h-3 w-3" />
-                <span>{team.leader.name || "Leader"} • {team.leader.section?.replace("_", " ") || "N/A"}</span>
+                <span>{team.leader.name || "Leader"} • Representative</span>
               </div>
             </div>
 
