@@ -55,9 +55,11 @@ interface TeamApplication {
 interface TeamMember {
   id: string;
   name: string | null;
+  section: string | null;
 }
 
 interface TeamSlot {
+  section: string;
   count: number;
 }
 
@@ -84,6 +86,39 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
   const { id: currentUserId } = useUserStore();
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+
+  const renderSlotsBySection = (team: TeamData) => {
+    const filledBySection = team.members.reduce<Record<string, number>>((acc, member) => {
+      if (!member.section) return acc;
+      acc[member.section] = (acc[member.section] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    return (
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Slots by section</p>
+        <div className="flex flex-wrap gap-1.5">
+          {team.slots.map((slot) => {
+            const filled = filledBySection[slot.section] ?? 0;
+            const full = filled >= slot.count;
+            return (
+              <Badge
+                key={slot.section}
+                variant="outline"
+                className={cn(
+                  "text-[9px] font-bold uppercase border-border/50 bg-muted/20",
+                  full && "text-muted-foreground/80",
+                )}
+                title={`${slot.section.replace(/_/g, " ")}: ${filled}/${slot.count}`}
+              >
+                {slot.section.replace(/_/g, " ")} {filled}/{slot.count}
+              </Badge>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
   
   if (!data || (data.teams.length === 0 && data.applications.length === 0)) {
     return (
@@ -260,6 +295,8 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
                                         ))}
                                     </div>
                                 </div>
+
+                                {renderSlotsBySection(team)}
                             </div>
                             
                             <div className="flex flex-col sm:items-end gap-2">
@@ -358,6 +395,8 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
                                         ))}
                                     </div>
                                 </div>
+
+                                {renderSlotsBySection(team)}
                             </div>
                             
                             <div className="flex flex-col sm:items-end gap-2">

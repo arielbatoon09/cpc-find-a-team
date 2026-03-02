@@ -6,7 +6,31 @@ import { revalidatePath } from "next/cache";
 import { Divergent, Event, Section, ApplicationStatus } from "@/app/generated/prisma";
 import { z } from "zod";
 
-// ... previous code ...
+const DIVERGENT_BY_SECTION: Record<Section, Divergent> = {
+  [Section.BSIT_1A]: Divergent.DAUNTLESS,
+  [Section.BSIT_2C]: Divergent.DAUNTLESS,
+  [Section.BSIT_3D]: Divergent.DAUNTLESS,
+  [Section.BSIT_4B]: Divergent.DAUNTLESS,
+
+  [Section.BSIT_1B]: Divergent.ERUDITE,
+  [Section.BSIT_2A]: Divergent.ERUDITE,
+  [Section.BSIT_3C]: Divergent.ERUDITE,
+  [Section.BSIT_4D]: Divergent.ERUDITE,
+
+  [Section.BSIT_1C]: Divergent.ABNEGATION,
+  [Section.BSIT_2D]: Divergent.ABNEGATION,
+  [Section.BSIT_3B]: Divergent.ABNEGATION,
+  [Section.BSIT_4A]: Divergent.ABNEGATION,
+
+  [Section.BSIT_1D]: Divergent.AMITY,
+  [Section.BSIT_2B]: Divergent.AMITY,
+  [Section.BSIT_3A]: Divergent.AMITY,
+  [Section.BSIT_4C]: Divergent.AMITY,
+};
+
+function getDivergentForSection(section: Section): Divergent {
+  return DIVERGENT_BY_SECTION[section];
+}
 
 export async function deleteTeam(teamId: string) {
     const session = await auth();
@@ -62,7 +86,8 @@ export async function applyToTeam(teamId: string) {
 
     // Check if user is already in a team
     const user = await prisma.user.findUnique({
-        where: { id: session.user.id }
+        where: { id: session.user.id },
+        select: { id: true, teamId: true, section: true }
     });
 
     if (user?.teamId) {
@@ -77,6 +102,45 @@ export async function applyToTeam(teamId: string) {
 
     if (leadingTeam) {
         return { error: "You already lead a team" };
+    }
+
+    if (!user?.section) {
+        return { error: "Your section is not set. Please complete onboarding." };
+    }
+
+    const team = await prisma.team.findUnique({
+        where: { id: teamId },
+        select: { id: true, leaderId: true, divergent: true, slots: true }
+    });
+
+    if (!team) {
+        return { error: "Team not found" };
+    }
+
+    if (team.leaderId === user.id) {
+        return { error: "You are the leader of this team" };
+    }
+
+    const userDivergent = getDivergentForSection(user.section);
+    if (userDivergent !== team.divergent) {
+        return { error: "You can only apply to teams within your faction" };
+    }
+
+    const slotForSection = team.slots.find((s) => s.section === user.section);
+    if (!slotForSection) {
+        return { error: "This team has no slot for your section" };
+    }
+
+    const filledForSection = await prisma.user.count({
+        where: {
+            teamId: team.id,
+            section: user.section,
+            id: { not: team.leaderId },
+        },
+    });
+
+    if (filledForSection >= slotForSection.count) {
+        return { error: "No available slots for your section" };
     }
 
     try {
@@ -136,27 +200,41 @@ export async function updateApplicationStatus(applicationId: string, status: App
 
     try {
         if (status === "ACCEPTED") {
-            // Capacity check: members excluding leader should not exceed slots.
-            const maxMembers = application.team.slots.reduce((acc, slot) => acc + slot.count, 0);
-            const currentMembers = await prisma.user.count({
-                where: {
-                    teamId: application.teamId,
-                    id: { not: application.team.leaderId }
-                }
-            });
-
-            if (currentMembers >= maxMembers) {
-                return { error: "Team is already full" };
-            }
-            
             // Check if user is already in another team
             const targetUser = await prisma.user.findUnique({
-                where: { id: application.userId }
+                where: { id: application.userId },
+                select: { id: true, teamId: true, section: true }
             });
 
             if (targetUser?.teamId) {
                 await prisma.application.delete({ where: { id: applicationId } });
                 return { error: "User is already in another team" };
+            }
+
+            if (!targetUser?.section) {
+                return { error: "Applicant section is not set" };
+            }
+
+            const userDivergent = getDivergentForSection(targetUser.section);
+            if (userDivergent !== application.team.divergent) {
+                return { error: "Applicant is not eligible for this faction" };
+            }
+
+            const slotForSection = application.team.slots.find((s) => s.section === targetUser.section);
+            if (!slotForSection) {
+                return { error: "No slot available for applicant section" };
+            }
+
+            const filledForSection = await prisma.user.count({
+                where: {
+                    teamId: application.teamId,
+                    section: targetUser.section,
+                    id: { not: application.team.leaderId },
+                },
+            });
+
+            if (filledForSection >= slotForSection.count) {
+                return { error: "No available slot for this section" };
             }
 
             // Update user's teamId
@@ -245,12 +323,7 @@ export async function createTeam(formData: z.infer<typeof CreateTeamSchema>) {
   // Determine divergent (reusing logic from lib/divergents)
   // Instead of re-importing which might cause circular deps or issues in server actions, 
   // we can just check the section mapping.
-  let divergent: Divergent = Divergent.DAUNTLESS; // Default
-  
-  if (["BSIT_1A", "BSIT_2C", "BSIT_3D", "BSIT_4B"].includes(user.section)) divergent = Divergent.DAUNTLESS;
-  else if (["BSIT_1B", "BSIT_2A", "BSIT_3C", "BSIT_4D"].includes(user.section)) divergent = Divergent.ERUDITE;
-  else if (["BSIT_1C", "BSIT_2D", "BSIT_3B", "BSIT_4A"].includes(user.section)) divergent = Divergent.ABNEGATION;
-  else if (["BSIT_1D", "BSIT_2B", "BSIT_3A", "BSIT_4C"].includes(user.section)) divergent = Divergent.AMITY;
+  const divergent = getDivergentForSection(user.section);
 
   try {
     const team = await prisma.team.create({

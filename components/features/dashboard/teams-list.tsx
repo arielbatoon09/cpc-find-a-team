@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { 
   User,
   PlusCircle,
@@ -12,10 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { FACTIONS } from "@/lib/divergents";
-import { Divergent } from "@/app/generated/prisma";
+import { Divergent, Section } from "@/app/generated/prisma";
 import { applyToTeam } from "@/services/team";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useUserStore } from "@/store/user-store";
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,7 @@ export interface TeamWithLeader {
     members: number;
   };
   slots: {
+      section: Section;
       count: number;
   }[];
   applications?: {
@@ -62,6 +64,7 @@ interface TeamsListProps {
 export function TeamsList({ teams, currentUserId }: TeamsListProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState<string | null>(null);
+  const currentUserSection = useUserStore((s) => s.section);
 
   if (teams.length === 0) {
     return (
@@ -97,6 +100,49 @@ export function TeamsList({ teams, currentUserId }: TeamsListProps) {
         const isFull = membersCount >= totalSlots;
         const hasApplied = team.applications?.some(app => app.userId === currentUserId && app.status !== 'REJECTED');
         const isLeader = team.leader.id === currentUserId;
+
+        const filledBySection = useMemo(() => {
+          const acc: Partial<Record<string, number>> = {};
+          for (const member of team.members) {
+            if (!member.section) continue;
+            acc[member.section] = (acc[member.section] ?? 0) + 1;
+          }
+          return acc;
+        }, [team.members]);
+
+        const sectionBadges = team.slots.map((slot) => {
+          const filled = filledBySection[String(slot.section)] ?? 0;
+          const full = filled >= slot.count;
+          return (
+            <Badge
+              key={String(slot.section)}
+              variant="outline"
+              className={cn(
+                "text-[9px] font-bold uppercase border-border/50 bg-muted/20",
+                full && "text-muted-foreground/80",
+              )}
+              title={`${String(slot.section).replace("_", " ")}: ${filled}/${slot.count}`}
+            >
+              {String(slot.section).replace("_", " ")} {filled}/{slot.count}
+            </Badge>
+          );
+        });
+
+        const applyDisabledReason = (() => {
+          if (!currentUserId) return "You must be logged in";
+          if (isLeader) return "You are the leader of this team";
+          if (hasApplied) return "You already applied";
+          if (!currentUserSection) return "Set your section first";
+          const isInFaction = faction.sections.includes(currentUserSection);
+          if (!isInFaction) return "Not your faction";
+          const slotForUser = team.slots.find((s) => s.section === currentUserSection);
+          if (!slotForUser) return "No slot for your section";
+          const filledForUser = filledBySection[String(currentUserSection)] ?? 0;
+          if (filledForUser >= slotForUser.count) return "Your section slot is full";
+          if (isFull) return "Team is full";
+          if (isPending === team.id) return "Applying...";
+          return null;
+        })();
         
         return (
           <div
@@ -106,7 +152,7 @@ export function TeamsList({ teams, currentUserId }: TeamsListProps) {
             <div className="mb-4 flex items-center justify-between">
               <div className={cn("h-2 w-10 rounded-full", faction.color.replace('text', 'bg'))} />
               <Badge variant="outline" className={cn(
-                "text-[11px] font-semibold border-border bg-muted/30",
+                "text-[11px] font-semibold border-border bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
                 isFull && "text-destructive border-destructive/20"
               )}>
                 {membersCount}/{totalSlots} members
@@ -118,6 +164,13 @@ export function TeamsList({ teams, currentUserId }: TeamsListProps) {
               <p className="text-xs text-muted-foreground line-clamp-2 leading-normal">
                 {team.description || "No description provided."}
               </p>
+            </div>
+
+            <div className="mt-5 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Slots by section</p>
+              <div className="flex flex-wrap gap-1.5">
+                {sectionBadges}
+              </div>
             </div>
 
             <div className="mt-6 flex items-center justify-between">
@@ -209,21 +262,26 @@ export function TeamsList({ teams, currentUserId }: TeamsListProps) {
                   </DialogContent>
                 </Dialog>
 
-                {!isFull && (
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className={cn(
-                        "h-8 px-2 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/5",
-                        (hasApplied || isLeader) && "text-muted-foreground hover:bg-transparent cursor-not-allowed opacity-50"
-                    )}
-                    onClick={() => handleApply(team.id)}
-                    disabled={!!isPending || hasApplied || isLeader}
-                  >
-                    {isPending === team.id ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : (!(hasApplied || isLeader) && <PlusCircle className="mr-1.5 h-3 w-3" />)}
-                    {isLeader ? "Your Team" : (hasApplied ? "Applied / Joined" : "Join")}
-                  </Button>
-                )}
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className={cn(
+                      "h-8 px-2 text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/5",
+                      applyDisabledReason && "text-muted-foreground hover:bg-transparent cursor-not-allowed opacity-50"
+                  )}
+                  onClick={() => {
+                    if (applyDisabledReason) {
+                      toast.error(applyDisabledReason);
+                      return;
+                    }
+                    void handleApply(team.id);
+                  }}
+                  disabled={!!applyDisabledReason}
+                  title={applyDisabledReason ?? "Apply to join"}
+                >
+                  {isPending === team.id ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : (!applyDisabledReason && <PlusCircle className="mr-1.5 h-3 w-3" />)}
+                  {isLeader ? "Your Team" : (hasApplied ? "Applied / Joined" : (applyDisabledReason === "Team is full" ? "Full" : "Join"))}
+                </Button>
               </div>
             </div>
           </div>
