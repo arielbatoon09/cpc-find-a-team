@@ -27,7 +27,7 @@ const signupSchema = z
     path: ["confirmPassword"],
   });
 
-export function SignupForm({ className, ...props }: React.ComponentProps<"div">) {
+export function SignupForm({ className }: { className?: string }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -48,7 +48,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
             router.push("/onboarding");
             router.refresh();
           }
-        } catch (error) {
+        } catch {
           toast.error("An unexpected error occurred.");
         }
       });
@@ -94,7 +94,8 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
               return res.success ? undefined : res.error.issues[0].message;
             },
           }}
-          children={(field) => (
+        >
+          {(field) => (
             <Field>
               <FieldLabel htmlFor={field.name}>Username</FieldLabel>
               <Input
@@ -113,7 +114,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
               )}
             </Field>
           )}
-        />
+        </form.Field>
 
         <form.Field
           name="password"
@@ -123,7 +124,8 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
               return res.success ? undefined : res.error.issues[0].message;
             },
           }}
-          children={(field) => (
+        >
+          {(field) => (
             <Field>
               <FieldLabel htmlFor={field.name}>Password</FieldLabel>
               <Input
@@ -141,7 +143,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
               )}
             </Field>
           )}
-        />
+        </form.Field>
 
         <form.Field
           name="confirmPassword"
@@ -155,7 +157,8 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
               return undefined;
             },
           }}
-          children={(field) => (
+        >
+          {(field) => (
             <Field>
               <FieldLabel htmlFor={field.name}>Confirm Password</FieldLabel>
               <Input
@@ -173,11 +176,10 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
               )}
             </Field>
           )}
-        />
+        </form.Field>
 
-        <form.Subscribe
-          selector={(state) => [state.canSubmit, state.isSubmitting]}
-          children={([canSubmit, isSubmitting]) => (
+        <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
+          {([canSubmit, isSubmitting]) => (
             <Button
               type="submit"
               className="mt-2 w-full font-semibold"
@@ -186,7 +188,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"div">)
               {isSubmitting || isPending ? "Creating account..." : "Sign up"}
             </Button>
           )}
-        />
+        </form.Subscribe>
       </form>
 
       <div className="text-center text-sm text-muted-foreground md:text-left">

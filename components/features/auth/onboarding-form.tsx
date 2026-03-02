@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -42,7 +41,7 @@ const onboardingSchema = z.object({
   path: ["representativeCode"]
 });
 
-export function OnboardingForm({ className, ...props }: React.ComponentProps<"div">) {
+export function OnboardingForm({ className }: { className?: string }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -137,7 +136,8 @@ export function OnboardingForm({ className, ...props }: React.ComponentProps<"di
               return res.success ? undefined : res.error.issues[0].message;
             },
           }}
-          children={(field) => (
+        >
+          {(field) => (
             <Field>
               <FieldLabel htmlFor={field.name}>Full Name</FieldLabel>
               <Input
@@ -153,11 +153,12 @@ export function OnboardingForm({ className, ...props }: React.ComponentProps<"di
               )}
             </Field>
           )}
-        />
+        </form.Field>
 
         <form.Field
           name="section"
-          children={(field) => (
+        >
+          {(field) => (
             <Field>
               <FieldLabel htmlFor={field.name}>Section</FieldLabel>
               <Select
@@ -180,11 +181,12 @@ export function OnboardingForm({ className, ...props }: React.ComponentProps<"di
               )}
             </Field>
           )}
-        />
+        </form.Field>
 
         <form.Field
           name="isRepresentative"
-          children={(field) => (
+        >
+          {(field) => (
             <div className="flex items-center space-x-2 py-2">
               <input
                 type="checkbox"
@@ -201,11 +203,10 @@ export function OnboardingForm({ className, ...props }: React.ComponentProps<"di
               </label>
             </div>
           )}
-        />
+        </form.Field>
 
-        <form.Subscribe
-          selector={(state) => [state.values.isRepresentative]}
-          children={([isRepresentative]) => (
+        <form.Subscribe selector={(state) => [state.values.isRepresentative]}>
+          {([isRepresentative]) => (
             <AnimatePresence>
               {isRepresentative && (
                 <motion.div
@@ -222,7 +223,8 @@ export function OnboardingForm({ className, ...props }: React.ComponentProps<"di
                         return undefined;
                       },
                     }}
-                    children={(field) => (
+                  >
+                    {(field) => (
                       <Field>
                         <FieldLabel htmlFor={field.name}>Representative Code</FieldLabel>
                         <Input
@@ -238,16 +240,15 @@ export function OnboardingForm({ className, ...props }: React.ComponentProps<"di
                         )}
                       </Field>
                     )}
-                  />
+                  </form.Field>
                 </motion.div>
               )}
             </AnimatePresence>
           )}
-        />
+        </form.Subscribe>
 
-        <form.Subscribe
-          selector={(state) => [state.canSubmit, state.isSubmitting]}
-          children={([canSubmit, isSubmitting]) => (
+        <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
+          {([canSubmit, isSubmitting]) => (
             <div className="mt-2 flex flex-col gap-3">
               <Button
                 type="submit"
@@ -266,7 +267,7 @@ export function OnboardingForm({ className, ...props }: React.ComponentProps<"di
               </Button>
             </div>
           )}
-        />
+        </form.Subscribe>
       </form>
     </motion.div>
   );

@@ -1,11 +1,9 @@
 "use client";
 
-import React from "react";
 import { 
   Bell, 
   Search, 
   Menu,
-  ChevronDown,
   User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
@@ -21,7 +20,7 @@ const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
+export function LoginForm({ className }: { className?: string }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -41,7 +40,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
             router.push("/dashboard");
             router.refresh();
           }
-        } catch (error) {
+        } catch {
           toast.error("An unexpected error occurred.");
         }
       });
@@ -87,7 +86,8 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
               return result.success ? undefined : result.error.issues[0].message;
             },
           }}
-          children={(field) => (
+        >
+          {(field) => (
             <Field>
               <FieldLabel htmlFor={field.name}>Username</FieldLabel>
               <Input
@@ -106,7 +106,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
               )}
             </Field>
           )}
-        />
+        </form.Field>
 
         <form.Field
           name="password"
@@ -116,7 +116,8 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
               return result.success ? undefined : result.error.issues[0].message;
             },
           }}
-          children={(field) => (
+        >
+          {(field) => (
             <Field>
               <FieldLabel htmlFor={field.name}>Password</FieldLabel>
 
@@ -135,11 +136,10 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
               )}
             </Field>
           )}
-        />
+        </form.Field>
 
-        <form.Subscribe
-          selector={(state) => [state.canSubmit, state.isSubmitting]}
-          children={([canSubmit, isSubmitting]) => (
+        <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting]}>
+          {([canSubmit, isSubmitting]) => (
             <Button
               type="submit"
               className="mt-2 w-full font-semibold"
@@ -148,7 +148,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
               {isSubmitting || isPending ? "Logging in..." : "Login"}
             </Button>
           )}
-        />
+        </form.Subscribe>
       </form>
 
       <div className="text-center text-sm text-muted-foreground md:text-left">

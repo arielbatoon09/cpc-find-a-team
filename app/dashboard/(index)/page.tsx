@@ -1,8 +1,8 @@
-import React from "react";
 import { getTeams } from "@/services/team";
 import { auth } from "@/lib/auth";
 import { TeamsList } from "@/components/features/dashboard/teams-list";
 import { MotionPage } from "@/components/common/motion-page";
+import type { TeamWithLeader } from "@/components/features/dashboard/teams-list";
 
 export default async function TeamsPage() {
   const session = await auth();
@@ -17,7 +17,7 @@ export default async function TeamsPage() {
         </div>
 
         <TeamsList 
-          teams={teams as any} 
+          teams={teams as unknown as TeamWithLeader[]} 
           currentUserId={session?.user?.id}
         />
       </div>

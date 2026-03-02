@@ -1,9 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { 
-  Users, 
-  ChevronRight,
   User,
   PlusCircle,
   Loader2,
@@ -27,7 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-interface TeamWithLeader {
+export interface TeamWithLeader {
   id: string;
   name: string;
   description: string | null;
@@ -83,7 +81,7 @@ export function TeamsList({ teams, currentUserId }: TeamsListProps) {
       } else {
         toast.error(result.error);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to apply");
     } finally {
       setIsPending(null);

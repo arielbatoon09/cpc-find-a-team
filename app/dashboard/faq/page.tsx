@@ -94,7 +94,7 @@ export default function FAQPage() {
 
           <section className="bg-muted/30 p-6 rounded-lg border border-dashed text-center">
               <p className="text-sm text-muted-foreground">
-                  Can't find what you're looking for? Reach out to your assigned instructor or visit the IT Department office for assistance.
+                  Can&apos;t find what you&apos;re looking for? Reach out to your assigned instructor or visit the IT Department office for assistance.
               </p>
           </section>
         </div>

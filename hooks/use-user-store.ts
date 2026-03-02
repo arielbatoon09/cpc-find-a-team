@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Role, Section } from "@/app/generated/prisma/enums";
+import { Role, Section } from "@/app/generated/prisma";
 
 interface UserState {
   id: string | null;

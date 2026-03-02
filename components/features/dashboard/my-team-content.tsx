@@ -5,8 +5,6 @@ import {
   Trash2,
   UserPlus,
   UserCircle,
-  MapPin,
-  Calendar,
   X,
   Check,
   Loader2,
@@ -39,10 +37,45 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+interface TeamApplication {
+  id: string;
+  status: string;
+  user: {
+    name: string | null;
+    section: string | null;
+  };
+  team: {
+    name: string;
+    event: string;
+    leader: { name: string | null };
+    _count: { members: number };
+  };
+}
+
+interface TeamMember {
+  id: string;
+  name: string | null;
+}
+
+interface TeamSlot {
+  count: number;
+}
+
+interface TeamData {
+  id: string;
+  name: string;
+  event: string;
+  leaderId: string | null;
+  createdAt: Date;
+  slots: TeamSlot[];
+  applications: TeamApplication[];
+  members: TeamMember[];
+}
+
 interface MyTeamContentProps {
   data: {
-    teams: any[];
-    applications: any[];
+    teams: TeamData[];
+    applications: TeamApplication[];
   } | null;
 }
 
@@ -80,7 +113,7 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
       } else {
         toast.error(result.error || "Failed to delete team");
       }
-    } catch (error) {
+    } catch {
       toast.error("An unexpected error occurred");
     } finally {
       setIsPending(false);
@@ -97,7 +130,7 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
       } else {
         toast.error(result.error || "Failed to leave team");
       }
-    } catch (error) {
+    } catch {
       toast.error("An unexpected error occurred");
     } finally {
       setIsPending(false);
@@ -113,7 +146,7 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
       } else {
         toast.error(result.error || "Failed to update application");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to update status");
     }
   };
@@ -146,12 +179,12 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
                 <p className="text-sm text-muted-foreground font-medium">No pending applications found.</p>
               </div>
             ) : (
-                activeTeam.applications?.filter((a: any) => a.status === 'PENDING').length === 0 ? (
+                activeTeam.applications?.filter((a) => a.status === 'PENDING').length === 0 ? (
                     <div className="py-20 text-center border-2 border-dashed rounded-2xl bg-muted/5">
                         <p className="text-sm text-muted-foreground font-medium">All applications have been processed.</p>
                     </div>
                 ) : (
-                    activeTeam.applications?.filter((a: any) => a.status === 'PENDING').map((app: any) => (
+                    activeTeam.applications?.filter((a) => a.status === 'PENDING').map((app) => (
                         <div key={app.id} className="flex items-center justify-between p-4 border rounded-xl bg-card">
                         <div className="flex items-center space-x-3">
                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
@@ -201,8 +234,8 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
           <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground ml-1">Teams You Lead</h2>
           <div className="grid gap-6">
             {ledTeams.map(team => {
-                const totalSlots = team.slots.reduce((acc: number, slot: any) => acc + slot.count, 0);
-                const pendingApps = team.applications?.filter((a: any) => a.status === 'PENDING').length || 0;
+                const totalSlots = team.slots.reduce((acc: number, slot) => acc + slot.count, 0);
+                const pendingApps = team.applications?.filter((a) => a.status === 'PENDING').length || 0;
                 
                 return (
                     <div key={team.id} className="rounded-xl border bg-card p-6 shadow-none flex flex-col space-y-6 group transition-colors hover:border-primary/20">
@@ -216,7 +249,7 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
                                 <div className="space-y-3">
                                     <p className="text-xs font-medium text-muted-foreground italic uppercase tracking-wider">Members</p>
                                     <div className="flex flex-wrap gap-2">
-                                        {team.members.map((member: any) => (
+                                        {team.members.map((member) => (
                                             <div key={member.id} className="flex items-center space-x-2 text-[11px] font-medium bg-muted/40 px-3 py-1.5 rounded-md text-muted-foreground border">
                                                 <UserCircle className="h-3 w-3" />
                                                 <span>{member.name}</span>
@@ -234,7 +267,6 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
                                     {team.members.length}/{totalSlots} Members
                                 </Badge>
                                 <div className="text-[10px] text-muted-foreground flex items-center space-x-1">
-                                    <Calendar className="h-3 w-3" />
                                     <span>Created {new Date(team.createdAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
@@ -271,7 +303,7 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Delete "{team.name}"?</AlertDialogTitle>
+                                        <AlertDialogTitle>Delete &quot;{team.name}&quot;?</AlertDialogTitle>
                                         <AlertDialogDescription>
                                             This action cannot be undone. This will permanently delete the team and remove all members.
                                         </AlertDialogDescription>
@@ -280,7 +312,7 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                                         <AlertDialogAction 
                                             onClick={() => handleDeleteTeam(team.id)}
-                                            className="bg-destructive hover:bg-destructive/90"
+                                            className="!bg-destructive hover:bg-destructive/90"
                                         >
                                             Delete Team
                                         </AlertDialogAction>
@@ -301,7 +333,7 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
           <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground ml-1">Teams You Joined</h2>
           <div className="grid gap-6">
             {joinedTeams.map(team => {
-                const totalSlots = team.slots.reduce((acc: number, slot: any) => acc + slot.count, 0);
+                const totalSlots = team.slots.reduce((acc: number, slot) => acc + slot.count, 0);
                 
                 return (
                     <div key={team.id} className="rounded-xl border bg-card p-6 shadow-none flex flex-col space-y-6">
@@ -315,7 +347,7 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
                                 <div className="space-y-3">
                                     <p className="text-xs font-medium text-muted-foreground italic uppercase tracking-wider">Members</p>
                                     <div className="flex flex-wrap gap-2">
-                                        {team.members.map((member: any) => (
+                                        {team.members.map((member) => (
                                             <div key={member.id} className="flex items-center space-x-2 text-[11px] font-medium bg-muted/40 px-3 py-1.5 rounded-md text-muted-foreground border">
                                                 <UserCircle className="h-3 w-3" />
                                                 <span>{member.name}</span>
@@ -333,7 +365,6 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
                                     {team.members.length}/{totalSlots} Members
                                 </Badge>
                                 <div className="text-[10px] text-muted-foreground flex items-center space-x-1">
-                                    <Calendar className="h-3 w-3" />
                                     <span>Created {new Date(team.createdAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
@@ -354,7 +385,7 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
-                                        <AlertDialogTitle>Leave "{team.name}"?</AlertDialogTitle>
+                                        <AlertDialogTitle>Leave &quot;{team.name}&quot;?</AlertDialogTitle>
                                         <AlertDialogDescription>
                                             Are you sure you want to leave this team? You will need to apply again if you want to rejoin.
                                         </AlertDialogDescription>

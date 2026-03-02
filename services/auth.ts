@@ -20,7 +20,7 @@ const SignupSchema = z.object({
   path: ["confirmPassword"],
 });
 
-export async function login(values: z.infer<typeof LoginSchema>, redirectTo: string = "/dashboard") {
+export async function login(values: z.infer<typeof LoginSchema>) {
   const validatedFields = LoginSchema.safeParse(values);
 
   if (!validatedFields.success) {
@@ -82,5 +82,5 @@ export async function signup(values: z.infer<typeof SignupSchema>) {
   });
 
   // Automatically sign in after signup and redirect to onboarding
-  return login({ username, password }, "/onboarding");
+  return login({ username, password });
 }

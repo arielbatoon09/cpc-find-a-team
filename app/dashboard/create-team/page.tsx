@@ -2,9 +2,7 @@
 
 import React, { useState } from "react";
 import {
-  Plus,
   Trash2,
-  Rocket,
   PlusCircle,
   AlertCircle,
   ArrowRight,
@@ -12,10 +10,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { useUserStore } from "@/store/user-store";
-import { Section, Divergent, Event } from "@/app/generated/prisma";
+import { Section, Event } from "@/app/generated/prisma";
 import {
   Select,
   SelectContent,
@@ -23,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { EVENTS, FACTIONS, getFactionBySection } from "@/lib/divergents";
+import { EVENTS, getFactionBySection } from "@/lib/divergents";
 import { cn } from "@/lib/utils";
 import { createTeam } from "@/services/team";
 import { useRouter } from "next/navigation";
@@ -51,7 +48,7 @@ export default function CreateTeamPage() {
     setSlots(slots.filter((_, i) => i !== index));
   };
 
-  const handleSlotChange = (index: number, field: keyof Slot, value: any) => {
+  const handleSlotChange = (index: number, field: keyof Slot, value: Slot[keyof Slot]) => {
     const newSlots = [...slots];
     newSlots[index] = { ...newSlots[index], [field]: value };
     setSlots(newSlots);
@@ -86,7 +83,7 @@ export default function CreateTeamPage() {
       } else {
         toast.error(result.error || "Failed to create team");
       }
-    } catch (error) {
+    } catch {
       toast.error("An unexpected error occurred");
     } finally {
       setIsPending(false);

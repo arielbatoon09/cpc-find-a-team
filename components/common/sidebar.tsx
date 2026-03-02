@@ -1,15 +1,12 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
   Users, 
   PlusSquare, 
   LayoutDashboard, 
-  Settings, 
   LogOut,
-  ChevronRight,
   ShieldCheck,
   UserCircle
 } from "lucide-react";

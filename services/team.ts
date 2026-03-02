@@ -26,7 +26,7 @@ export async function deleteTeam(teamId: string) {
         });
         revalidatePath("/dashboard");
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Failed to delete team" };
     }
 }
@@ -51,7 +51,7 @@ export async function leaveTeam(teamId: string) {
 
         revalidatePath("/dashboard");
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Failed to leave team" };
     }
 }
@@ -79,8 +79,13 @@ export async function applyToTeam(teamId: string) {
         });
         revalidatePath("/dashboard");
         return { success: true };
-    } catch (error: any) {
-        if (error.code === 'P2002') {
+    } catch (error: unknown) {
+        const code =
+            typeof error === "object" && error !== null && "code" in error
+                ? (error as { code?: unknown }).code
+                : undefined;
+
+        if (code === "P2002") {
             return { error: "You have already applied to this team" };
         }
         return { error: "Failed to apply to team" };
@@ -154,7 +159,7 @@ export async function updateApplicationStatus(applicationId: string, status: App
 
         revalidatePath("/dashboard");
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Failed to update application" };
     }
 }
@@ -244,7 +249,7 @@ export async function createTeam(formData: z.infer<typeof CreateTeamSchema>) {
 
     revalidatePath("/dashboard");
     return { success: true, teamId: team.id };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Create Team Error:", error);
     return { error: "Failed to create team. Please try again." };
   }
