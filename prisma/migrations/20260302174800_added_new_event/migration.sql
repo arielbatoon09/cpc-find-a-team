@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "Event" ADD VALUE 'ESPORTS_ML';

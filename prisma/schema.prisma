@@ -1,0 +1,126 @@
+datasource db {
+  provider = "postgresql"
+}
+ 
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum Role {
+  USER
+  ADMIN
+  REPRESENTATIVE
+}
+
+enum Divergent {
+  DAUNTLESS
+  ERUDITE
+  ABNEGATION
+  AMITY
+}
+
+enum Event {
+  TECH_QUIZ_BOWL
+  ESPORTS_COD
+  ESPORTS_CROSSFIRE
+  ESPORTS_ML
+  MINI_HACKATHON
+  CODE_RELAY
+  PC_ASSEMBLY_RACE
+}
+
+enum Section {
+  BSIT_1A
+  BSIT_1B
+  BSIT_1C
+  BSIT_1D
+  BSIT_2A
+  BSIT_2B
+  BSIT_2C
+  BSIT_2D
+  BSIT_3A
+  BSIT_3B
+  BSIT_3C
+  BSIT_3D
+  BSIT_4A
+  BSIT_4B
+  BSIT_4C
+  BSIT_4D
+}
+ 
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  username      String          @unique
+  password      String
+  image         String?
+  section       Section?
+  isOnboarded   Boolean         @default(false)
+  role          Role            @default(USER)
+  sessions      Session[]
+  
+  ledTeams    Team[]    @relation("TeamLeader")
+  teamId      String?
+  team        Team?     @relation("TeamMembers", fields: [teamId], references: [id])
+
+  applications Application[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Team {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  divergent   Divergent
+  event       Event
+  
+  leaderId    String
+  leader      User      @relation("TeamLeader", fields: [leaderId], references: [id])
+  
+  members     User[]    @relation("TeamMembers")
+  slots       TeamSlot[]
+  applications Application[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamSlot {
+  id        String   @id @default(cuid())
+  section   Section
+  count     Int      @default(1)
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+model Application {
+  id        String            @id @default(cuid())
+  teamId    String
+  team      Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    ApplicationStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@unique([teamId, userId])
+}
+ 
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
