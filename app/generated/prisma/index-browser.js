@@ -129,7 +129,6 @@ exports.Prisma.UserScalarFieldEnum = {
   section: 'section',
   isOnboarded: 'isOnboarded',
   role: 'role',
-  teamId: 'teamId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -150,6 +149,13 @@ exports.Prisma.TeamSlotScalarFieldEnum = {
   section: 'section',
   count: 'count',
   teamId: 'teamId'
+};
+
+exports.Prisma.TeamMemberScalarFieldEnum = {
+  id: 'id',
+  teamId: 'teamId',
+  userId: 'userId',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.ApplicationScalarFieldEnum = {
@@ -235,6 +241,7 @@ exports.Prisma.ModelName = {
   User: 'User',
   Team: 'Team',
   TeamSlot: 'TeamSlot',
+  TeamMember: 'TeamMember',
   Application: 'Application',
   Session: 'Session'
 };

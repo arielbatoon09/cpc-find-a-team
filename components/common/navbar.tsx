@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useUserStore } from "@/store/user-store";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,9 +71,10 @@ interface NavbarProps {
     username: string | null;
     section: Section | null;
   };
+  pendingApplicationsCount?: number;
 }
 
-export function Navbar({ user: initialUser }: NavbarProps) {
+export function Navbar({ user: initialUser, pendingApplicationsCount = 0 }: NavbarProps) {
   const pathname = usePathname();
   const storeUser = useUserStore();
   
@@ -108,13 +110,18 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "text-sm font-medium transition-colors hover:text-primary relative py-1",
+                  "text-sm font-medium transition-colors hover:text-primary relative py-1 flex items-center gap-1.5",
                   isActive 
                     ? "text-primary" 
                     : "text-muted-foreground"
                 )}
               >
                 {link.name}
+                {link.name === "My Teams" && pendingApplicationsCount > 0 && (
+                  <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full text-white bg-destructive px-1 text-[10px] font-bold text-destructive-foreground animate-in zoom-in duration-300">
+                    {pendingApplicationsCount}
+                  </span>
+                )}
                 {isActive && (
                   <span className="absolute bottom-0 left-0 h-0.5 w-full bg-primary rounded-full" />
                 )}
@@ -187,7 +194,7 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                         key={link.href}
                         href={link.href}
                         className={cn(
-                          "flex items-center space-x-3 p-2.5 rounded-lg transition-colors",
+                          "flex items-center justify-between p-2.5 rounded-lg transition-colors",
                           isActive 
                             ? "bg-primary/10 text-primary font-semibold" 
                             : "hover:bg-muted text-muted-foreground"
@@ -196,8 +203,15 @@ export function Navbar({ user: initialUser }: NavbarProps) {
                           // Simple way to trigger close - usually Drawer items should close on click
                         }}
                       >
-                        <Icon className="h-4 w-4" />
-                        <span className="text-sm">{link.name}</span>
+                        <div className="flex items-center space-x-3">
+                          <Icon className="h-4 w-4" />
+                          <span className="text-sm">{link.name}</span>
+                        </div>
+                        {link.name === "My Teams" && pendingApplicationsCount > 0 && (
+                          <Badge variant="destructive" className="h-5 px-1.5 text-[10px] animate-in zoom-in duration-300">
+                            {pendingApplicationsCount}
+                          </Badge>
+                        )}
                       </Link>
                     );
                   })}

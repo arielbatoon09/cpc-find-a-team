@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/common/navbar";
 import { Footer } from "@/components/common/footer";
+import { getPendingApplicationsCount } from "@/services/team";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -16,6 +17,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/onboarding");
   }
 
+  const pendingApplicationsCount = await getPendingApplicationsCount();
+
   // 3. User is ready for the dashboard
   return (
     <div className="min-h-screen flex flex-col bg-muted/10">
@@ -26,6 +29,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           username: session.user.username ?? null,
           section: session.user.section ?? null
         }} 
+        pendingApplicationsCount={pendingApplicationsCount}
       />
       <main className="container mx-auto px-4 py-8 lg:px-8 flex-grow">
         {children}

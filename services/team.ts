@@ -32,6 +32,25 @@ function getDivergentForSection(section: Section): Divergent {
   return DIVERGENT_BY_SECTION[section];
 }
 
+export async function getPendingApplicationsCount() {
+    const session = await auth();
+    if (!session?.user?.id) return 0;
+
+    try {
+        return await prisma.application.count({
+            where: {
+                status: "PENDING",
+                team: {
+                    leaderId: session.user.id
+                }
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching pending applications count:", error);
+        return 0;
+    }
+}
+
 export async function deleteTeam(teamId: string) {
     const session = await auth();
     if (!session?.user?.id) return { error: "Unauthorized" };
@@ -61,16 +80,23 @@ export async function leaveTeam(teamId: string) {
 
     try {
         const team = await prisma.team.findUnique({
-            where: { id: teamId }
+            where: { id: teamId },
+            select: { leaderId: true }
         });
 
-        if (team?.leaderId === session.user.id) {
+        if (!team) {
+            return { error: "Team not found" };
+        }
+
+        if (team.leaderId === session.user.id) {
             return { error: "Leaders cannot leave their teams. Delete the team instead." };
         }
 
-        await prisma.user.update({
-            where: { id: session.user.id },
-            data: { teamId: null }
+        await prisma.teamMember.deleteMany({
+            where: {
+                teamId,
+                userId: session.user.id,
+            },
         });
 
         revalidatePath("/dashboard");
@@ -84,25 +110,10 @@ export async function applyToTeam(teamId: string) {
     const session = await auth();
     if (!session?.user?.id) return { error: "Unauthorized" };
 
-    // Check if user is already in a team
     const user = await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { id: true, teamId: true, section: true }
+        select: { id: true, section: true }
     });
-
-    if (user?.teamId) {
-        return { error: "You are already in a team" };
-    }
-
-    // Leaders/representatives who created a team should not join other teams.
-    const leadingTeam = await prisma.team.findFirst({
-        where: { leaderId: session.user.id },
-        select: { id: true }
-    });
-
-    if (leadingTeam) {
-        return { error: "You already lead a team" };
-    }
 
     if (!user?.section) {
         return { error: "Your section is not set. Please complete onboarding." };
@@ -131,11 +142,12 @@ export async function applyToTeam(teamId: string) {
         return { error: "This team has no slot for your section" };
     }
 
-    const filledForSection = await prisma.user.count({
+    const filledForSection = await prisma.teamMember.count({
         where: {
             teamId: team.id,
-            section: user.section,
-            id: { not: team.leaderId },
+            user: {
+                section: user.section,
+            },
         },
     });
 
@@ -200,16 +212,10 @@ export async function updateApplicationStatus(applicationId: string, status: App
 
     try {
         if (status === "ACCEPTED") {
-            // Check if user is already in another team
             const targetUser = await prisma.user.findUnique({
                 where: { id: application.userId },
-                select: { id: true, teamId: true, section: true }
+                select: { id: true, section: true }
             });
-
-            if (targetUser?.teamId) {
-                await prisma.application.delete({ where: { id: applicationId } });
-                return { error: "User is already in another team" };
-            }
 
             if (!targetUser?.section) {
                 return { error: "Applicant section is not set" };
@@ -225,11 +231,12 @@ export async function updateApplicationStatus(applicationId: string, status: App
                 return { error: "No slot available for applicant section" };
             }
 
-            const filledForSection = await prisma.user.count({
+            const filledForSection = await prisma.teamMember.count({
                 where: {
                     teamId: application.teamId,
-                    section: targetUser.section,
-                    id: { not: application.team.leaderId },
+                    user: {
+                        section: targetUser.section,
+                    },
                 },
             });
 
@@ -237,16 +244,17 @@ export async function updateApplicationStatus(applicationId: string, status: App
                 return { error: "No available slot for this section" };
             }
 
-            // Update user's teamId
-            await prisma.user.update({
-                where: { id: application.userId },
-                data: { teamId: application.teamId }
-            });
-
-            // Delete application
-            await prisma.application.delete({
-                where: { id: applicationId }
-            });
+            await prisma.$transaction([
+                prisma.teamMember.create({
+                    data: {
+                        teamId: application.teamId,
+                        userId: application.userId,
+                    },
+                }),
+                prisma.application.delete({
+                    where: { id: applicationId },
+                }),
+            ]);
         } else {
             // REJECTED
             await prisma.application.update({
@@ -286,16 +294,6 @@ export async function createTeam(formData: z.infer<typeof CreateTeamSchema>) {
     return { error: "Only representatives or admins can create teams" };
   }
 
-  // Representatives/leaders should only have one team, and should not be a member of another team.
-  const existingLeaderTeam = await prisma.team.findFirst({
-    where: { leaderId: session.user.id },
-    select: { id: true },
-  });
-
-  if (existingLeaderTeam) {
-    return { error: "You already lead a team" };
-  }
-
   // Validate input
   const validated = CreateTeamSchema.safeParse(formData);
   if (!validated.success) {
@@ -309,15 +307,11 @@ export async function createTeam(formData: z.infer<typeof CreateTeamSchema>) {
   // Note: We need the user's section from the DB to be sure
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { section: true, teamId: true }
+    select: { section: true }
   });
 
   if (!user?.section) {
     return { error: "User section not found" };
-  }
-
-  if (user.teamId) {
-    return { error: "You are already in a team" };
   }
 
   // Determine divergent (reusing logic from lib/divergents)
@@ -364,11 +358,15 @@ export async function getTeams(userId?: string) {
             },
             slots: true,
             members: {
-                select: {
-                    id: true,
-                    name: true,
-                    section: true
-                }
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            section: true,
+                        },
+                    },
+                },
             },
             _count: {
                 select: { members: true }
@@ -382,7 +380,9 @@ export async function getTeams(userId?: string) {
 
     // Ensure leader is not counted as a member (also fixes existing DB rows).
     return teams.map((team) => {
-        const members = team.members.filter((m) => m.id !== team.leaderId);
+        const members = team.members
+            .map((m) => m.user)
+            .filter((m) => m.id !== team.leaderId);
         return {
             ...team,
             members,
@@ -402,18 +402,21 @@ export async function getMyTeam() {
         where: {
             OR: [
                 { leaderId: session.user.id },
-                { members: { some: { id: session.user.id } } }
+                { members: { some: { userId: session.user.id } } }
             ]
         },
         include: {
             leader: true,
             members: {
-                select: {
-                    id: true,
-                    name: true,
-                    section: true,
-                    role: true
-                }
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            section: true,
+                        },
+                    },
+                },
             },
             slots: true,
             applications: {
@@ -441,24 +444,10 @@ export async function getMyTeam() {
 
     const normalizedTeams = teams.map((team) => ({
         ...team,
-        members: team.members.filter((m) => m.id !== team.leaderId),
+        members: team.members
+            .map((m) => m.user)
+            .filter((m) => m.id !== team.leaderId),
     }));
 
-    const normalizedApplications = applications.map((app) => {
-        const leaderIsMember = app.team.leader?.teamId === app.team.id;
-        const membersCount = leaderIsMember ? Math.max(0, app.team._count.members - 1) : app.team._count.members;
-
-        return {
-            ...app,
-            team: {
-                ...app.team,
-                _count: {
-                    ...app.team._count,
-                    members: membersCount,
-                },
-            },
-        };
-    });
-
-    return { teams: normalizedTeams, applications: normalizedApplications };
+    return { teams: normalizedTeams, applications };
 }

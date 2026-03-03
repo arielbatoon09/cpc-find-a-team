@@ -261,12 +261,23 @@ export function MyTeamContent({ data }: MyTeamContentProps) {
   const ledTeams = teams.filter(t => t.leaderId === currentUserId);
   const joinedTeams = teams.filter(t => t.leaderId !== currentUserId);
 
+  const totalPendingApps = ledTeams.reduce((acc, team) => {
+    return acc + (team.applications?.filter(a => a.status === 'PENDING').length || 0);
+  }, 0);
+
   return (
     <div className="space-y-16">
       {/* Led Teams Section */}
       {ledTeams.length > 0 && (
         <section className="space-y-6">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground ml-1">Teams You Lead</h2>
+          <div className="flex items-center gap-2 ml-1">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Teams You Lead</h2>
+            {totalPendingApps > 0 && (
+              <Badge variant="destructive" className="h-4 px-1.5 text-[10px] font-bold animate-pulse">
+                {totalPendingApps}
+              </Badge>
+            )}
+          </div>
           <div className="grid gap-6">
             {ledTeams.map(team => {
                 const totalSlots = team.slots.reduce((acc: number, slot) => acc + slot.count, 0);

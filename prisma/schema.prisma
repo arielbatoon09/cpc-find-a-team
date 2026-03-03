@@ -66,9 +66,8 @@ model User {
   role          Role            @default(USER)
   sessions      Session[]
   
-  ledTeams    Team[]    @relation("TeamLeader")
-  teamId      String?
-  team        Team?     @relation("TeamMembers", fields: [teamId], references: [id])
+  ledTeams        Team[]       @relation("TeamLeader")
+  teamMemberships TeamMember[]
 
   applications Application[]
 
@@ -84,9 +83,8 @@ model Team {
   event       Event
   
   leaderId    String
-  leader      User      @relation("TeamLeader", fields: [leaderId], references: [id])
-  
-  members     User[]    @relation("TeamMembers")
+  leader      User         @relation("TeamLeader", fields: [leaderId], references: [id])
+  members     TeamMember[]
   slots       TeamSlot[]
   applications Application[]
 
@@ -100,6 +98,15 @@ model TeamSlot {
   count     Int      @default(1)
   teamId    String
   team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
 
 model Application {
