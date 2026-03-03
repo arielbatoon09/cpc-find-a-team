@@ -80,8 +80,11 @@ function TeamCard({
   const totalSlots = team.slots.reduce((acc, slot) => acc + slot.count, 0);
   const membersCount = team._count.members;
   const isFull = membersCount >= totalSlots;
-  const hasApplied = team.applications?.some(app => app.userId === currentUserId && app.status !== 'REJECTED');
   const isLeader = team.leader.id === currentUserId;
+  const isMember = team.members.some(m => m.id === currentUserId);
+  const application = team.applications?.find(app => app.userId === currentUserId);
+  const isPendingApp = application?.status === 'PENDING';
+  const isRejectedApp = application?.status === 'REJECTED';
 
   const filledBySection = useMemo(() => {
     const acc: Partial<Record<string, number>> = {};
@@ -113,7 +116,9 @@ function TeamCard({
   const applyDisabledReason = (() => {
     if (!currentUserId) return "You must be logged in";
     if (isLeader) return "You are the leader of this team";
-    if (hasApplied) return "You already applied";
+    if (isMember) return "You are already a member";
+    if (isPendingApp) return "Your application is pending";
+    if (isRejectedApp) return "Your application was rejected";
     if (!currentUserSection) return "Set your section first";
     const isInFaction = faction.sections.includes(currentUserSection as Section);
     if (!isInFaction) return "Not your faction";
@@ -261,7 +266,7 @@ function TeamCard({
             title={applyDisabledReason ?? "Apply to join"}
           >
             {isPending === team.id ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : (!applyDisabledReason && <PlusCircle className="mr-1.5 h-3 w-3" />)}
-            {isLeader ? "Your Team" : (hasApplied ? "Applied / Joined" : (applyDisabledReason === "Team is full" ? "Full" : "Join"))}
+            {isLeader ? "Your Team" : (isMember || isPendingApp ? "Applied / Joined" : (isRejectedApp ? "Rejected" : (applyDisabledReason === "Team is full" ? "Full" : "Join")))}
           </Button>
         </div>
       </div>
